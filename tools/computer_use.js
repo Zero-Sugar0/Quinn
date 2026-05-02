@@ -1,6 +1,6 @@
 // tools/computer_use.js
 //
-// Desktop automation — mouse, keyboard, screen capture.
+// Desktop automation — mouse, keyboard, screen capture, and vision analysis.
 // Requires: @nut-tree/nut-js (build from source) OR the community fork:
 //   npm install @nut-tree-fork/nut-js
 //
@@ -11,6 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { GoogleGenAI } from '@google/genai';
 import { Type } from '@google/genai';
 
 // ─────────────────────────────────────────────
@@ -21,19 +22,16 @@ let _nut = null;
 async function nut() {
   if (_nut) return _nut;
   try {
-    const mod = await import('@nut-tree/nut-js');
-    _nut = mod;
+    _nut = await import('@nut-tree/nut-js');
     return _nut;
   } catch {
     try {
-      // community fork fallback
-      const mod = await import('@nut-tree-fork/nut-js');
-      _nut = mod;
+      _nut = await import('@nut-tree-fork/nut-js');
       return _nut;
     } catch {
       throw new Error(
         'nut-js is not installed. Run: npm install @nut-tree-fork/nut-js\n' +
-        'macOS users: also grant Accessibility + Screen Recording to your terminal.'
+        'macOS: also grant Accessibility + Screen Recording to your terminal.'
       );
     }
   }
@@ -65,12 +63,31 @@ const KEY_ALIASES = {
 
 function resolveKeys(N, keys) {
   return keys.map((k) => {
-    const lower = k.toLowerCase();
-    const name = KEY_ALIASES[lower] ?? k;
+    const lower    = k.toLowerCase();
+    const name     = KEY_ALIASES[lower] ?? k;
     const resolved = N.Key[name];
-    if (resolved === undefined) throw new Error(`Unknown key: "${k}". Try names like ctrl, alt, shift, cmd, enter, tab, a-z, f1-f12.`);
+    if (resolved === undefined)
+      throw new Error(`Unknown key: "${k}". Try: ctrl, alt, shift, cmd, enter, tab, a-z, f1-f12.`);
     return resolved;
   });
+}
+
+// ─────────────────────────────────────────────
+//  Vision helper — calls Gemini with an image
+// ─────────────────────────────────────────────
+async function callVision(imagePart, question) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set.');
+
+  const ai       = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model    : 'gemini-2.5-flash',
+    contents : [{ parts: [imagePart, { text: question }] }],
+  });
+
+  const candidate = response.candidates?.[0];
+  if (!candidate?.content) throw new Error('Vision model returned no content.');
+  return candidate.content?.parts?.find((p) => p.text)?.text ?? '*(no description returned)*';
 }
 
 // ─────────────────────────────────────────────
@@ -83,8 +100,8 @@ export const computerUseDeclarations = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        x: { type: Type.INTEGER, description: 'Horizontal pixel coordinate from the left edge of the screen.' },
-        y: { type: Type.INTEGER, description: 'Vertical pixel coordinate from the top edge of the screen.' },
+        x: { type: Type.INTEGER, description: 'Horizontal pixel coordinate from the left edge.' },
+        y: { type: Type.INTEGER, description: 'Vertical pixel coordinate from the top edge.' },
       },
       required: ['x', 'y'],
     },
@@ -96,12 +113,9 @@ export const computerUseDeclarations = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        button: {
-          type: Type.STRING,
-          description: 'Which button to click: "left" (default), "right", "middle", or "double".',
-        },
-        x: { type: Type.INTEGER, description: 'Optional x coordinate. If provided, moves mouse here before clicking.' },
-        y: { type: Type.INTEGER, description: 'Optional y coordinate. If provided, moves mouse here before clicking.' },
+        button: { type: Type.STRING, description: '"left" (default), "right", "middle", or "double".' },
+        x: { type: Type.INTEGER, description: 'Optional x coordinate — moves here before clicking.' },
+        y: { type: Type.INTEGER, description: 'Optional y coordinate — moves here before clicking.' },
       },
       required: [],
     },
@@ -109,14 +123,14 @@ export const computerUseDeclarations = [
 
   {
     name: 'mouse_drag',
-    description: 'Click and drag from one position to another. Useful for moving windows, sliders, selecting text, etc.',
+    description: 'Click and drag from one position to another. Useful for moving windows, sliders, selecting text.',
     parameters: {
       type: Type.OBJECT,
       properties: {
         from_x: { type: Type.INTEGER, description: 'Starting x coordinate.' },
         from_y: { type: Type.INTEGER, description: 'Starting y coordinate.' },
-        to_x: { type: Type.INTEGER, description: 'Ending x coordinate.' },
-        to_y: { type: Type.INTEGER, description: 'Ending y coordinate.' },
+        to_x:   { type: Type.INTEGER, description: 'Ending x coordinate.' },
+        to_y:   { type: Type.INTEGER, description: 'Ending y coordinate.' },
       },
       required: ['from_x', 'from_y', 'to_x', 'to_y'],
     },
@@ -124,12 +138,12 @@ export const computerUseDeclarations = [
 
   {
     name: 'mouse_scroll',
-    description: 'Scroll the mouse wheel up or down by a given number of clicks.',
+    description: 'Scroll the mouse wheel up or down.',
     parameters: {
       type: Type.OBJECT,
       properties: {
         direction: { type: Type.STRING, description: '"up" or "down".' },
-        amount: { type: Type.INTEGER, description: 'Number of scroll clicks. Default: 3.' },
+        amount:    { type: Type.INTEGER, description: 'Number of scroll clicks. Default: 3.' },
         x: { type: Type.INTEGER, description: 'Optional: move mouse here before scrolling.' },
         y: { type: Type.INTEGER, description: 'Optional: move mouse here before scrolling.' },
       },
@@ -139,12 +153,12 @@ export const computerUseDeclarations = [
 
   {
     name: 'key_type',
-    description: 'Type a string of text as if the user typed it on the keyboard. Use for filling in text fields, search boxes, etc.',
+    description: 'Type a string of text as if the user typed it on the keyboard.',
     parameters: {
       type: Type.OBJECT,
       properties: {
-        text: { type: Type.STRING, description: 'The text to type.' },
-        delay_ms: { type: Type.INTEGER, description: 'Optional delay between keystrokes in milliseconds. Default: 0 (as fast as possible).' },
+        text:     { type: Type.STRING,  description: 'The text to type.' },
+        delay_ms: { type: Type.INTEGER, description: 'Delay between keystrokes in ms. Default: 0.' },
       },
       required: ['text'],
     },
@@ -152,14 +166,14 @@ export const computerUseDeclarations = [
 
   {
     name: 'key_press',
-    description: 'Press a single key or a keyboard shortcut (key combination). Use for shortcuts like Ctrl+C, Cmd+Space, pressing Enter, etc.',
+    description: 'Press a single key or keyboard shortcut. Examples: ["enter"], ["ctrl","c"], ["cmd","space"], ["f5"].',
     parameters: {
       type: Type.OBJECT,
       properties: {
         keys: {
           type: Type.ARRAY,
           items: { type: Type.STRING },
-          description: 'List of key names to press simultaneously. Examples: ["enter"], ["ctrl", "c"], ["cmd", "shift", "4"], ["f5"]. Valid modifiers: ctrl, alt, shift, cmd. Valid special keys: enter, tab, escape, backspace, delete, up, down, left, right, home, end, pageup, pagedown, f1-f12.',
+          description: 'Key names to press simultaneously. Modifiers: ctrl, alt, shift, cmd. Special: enter, tab, escape, backspace, delete, arrow keys, f1-f12.',
         },
       },
       required: ['keys'],
@@ -168,22 +182,19 @@ export const computerUseDeclarations = [
 
   {
     name: 'capture_screen',
-    description: 'Capture the current state of the screen and save it as a PNG. Returns the file path and base64-encoded image data that can be passed to a vision model.',
+    description: 'Capture the current screen or a region and save as PNG. Returns the file path and base64 data. Chain with analyze_image to understand what is on screen.',
     parameters: {
       type: Type.OBJECT,
       properties: {
-        output_path: {
-          type: Type.STRING,
-          description: 'Optional: where to save the PNG. Defaults to a temp file.',
-        },
+        output_path: { type: Type.STRING, description: 'Where to save the PNG. Defaults to a temp file.' },
         region: {
           type: Type.OBJECT,
-          description: 'Optional: capture only a specific screen region.',
+          description: 'Capture only a region of the screen.',
           properties: {
-            x: { type: Type.INTEGER, description: 'Left edge of region.' },
-            y: { type: Type.INTEGER, description: 'Top edge of region.' },
-            width: { type: Type.INTEGER, description: 'Width of region in pixels.' },
-            height: { type: Type.INTEGER, description: 'Height of region in pixels.' },
+            x:      { type: Type.INTEGER },
+            y:      { type: Type.INTEGER },
+            width:  { type: Type.INTEGER },
+            height: { type: Type.INTEGER },
           },
         },
       },
@@ -192,32 +203,55 @@ export const computerUseDeclarations = [
   },
 
   {
-    name: 'get_mouse_position',
-    description: 'Get the current x, y coordinates of the mouse cursor.',
+    name: 'analyze_image',
+    description: 'Send an image to Gemini vision and ask a question about it. Works with: (1) a path returned by take_screenshot, (2) any local image file, (3) a public image URL. Use this after take_screenshot to understand what is on screen before deciding where to click or type.',
     parameters: {
       type: Type.OBJECT,
-      properties: {},
-      required: [],
+      properties: {
+        question: {
+          type: Type.STRING,
+          description: 'What to ask about the image. Be specific — e.g. "Where is the Submit button and what are its approximate pixel coordinates?", "What error message is shown?", "List all UI elements visible."',
+        },
+        path: {
+          type: Type.STRING,
+          description: 'Local file path to the image (PNG, JPEG, GIF, WEBP). Use the path returned by take_screenshot.',
+        },
+        base64: {
+          type: Type.STRING,
+          description: 'Base64-encoded image data. Use base64_png from take_screenshot if already available — avoids re-reading from disk.',
+        },
+        mime_type: {
+          type: Type.STRING,
+          description: 'MIME type when providing base64. Default: "image/png".',
+        },
+        url: {
+          type: Type.STRING,
+          description: 'Public URL of an image to fetch and analyze.',
+        },
+      },
+      required: ['question'],
     },
+  },
+
+  {
+    name: 'get_mouse_position',
+    description: 'Get the current x, y pixel coordinates of the mouse cursor.',
+    parameters: { type: Type.OBJECT, properties: {}, required: [] },
   },
 
   {
     name: 'get_screen_size',
-    description: 'Get the width and height of the primary display in pixels. Call this before using coordinates to understand the screen bounds.',
-    parameters: {
-      type: Type.OBJECT,
-      properties: {},
-      required: [],
-    },
+    description: 'Get the width and height of the primary display in pixels. Call this before using coordinates.',
+    parameters: { type: Type.OBJECT, properties: {}, required: [] },
   },
 
   {
     name: 'sleep_ms',
-    description: 'Pause execution for a given number of milliseconds. Useful between UI actions to let animations or page loads finish.',
+    description: 'Pause for a number of milliseconds. Use between UI actions to let animations or page loads finish.',
     parameters: {
       type: Type.OBJECT,
       properties: {
-        duration_ms: { type: Type.INTEGER, description: 'How many milliseconds to sleep.' },
+        duration_ms: { type: Type.INTEGER, description: 'Milliseconds to sleep.' },
       },
       required: ['duration_ms'],
     },
@@ -228,6 +262,47 @@ export const computerUseDeclarations = [
 //  Implementations
 // ─────────────────────────────────────────────
 export async function executeComputerUseTool(name, args) {
+
+  // analyze_image does NOT need nut-js — handle it first
+  if (name === 'analyze_image') {
+    const { question, path: filePath, base64, mime_type, url } = args;
+
+    if (!question) throw new Error('question is required for analyze_image.');
+
+    let imagePart;
+
+    if (base64) {
+      // Fastest path: caller already has base64 (e.g. from take_screenshot)
+      imagePart = { inlineData: { mimeType: mime_type ?? 'image/png', data: base64 } };
+
+    } else if (filePath) {
+      const resolved = path.resolve(filePath);
+      if (!fs.existsSync(resolved)) throw new Error(`Image file not found: ${resolved}`);
+
+      const ext  = path.extname(resolved).toLowerCase();
+      const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                     '.gif': 'image/gif', '.webp': 'image/webp' }[ext] ?? 'image/png';
+      const data = fs.readFileSync(resolved, { encoding: 'base64' });
+      imagePart = { inlineData: { mimeType: mime, data } };
+
+    } else if (url) {
+      const res             = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch image URL: ${res.status} ${res.statusText}`);
+      const arrayBuffer     = await res.arrayBuffer();
+      const data            = Buffer.from(arrayBuffer).toString('base64');
+      const contentType     = res.headers.get('content-type') ?? 'image/jpeg';
+      const mime            = contentType.split(';')[0].trim();
+      imagePart = { inlineData: { mimeType: mime, data } };
+
+    } else {
+      throw new Error('analyze_image requires one of: path, base64, or url.');
+    }
+
+    const answer = await callVision(imagePart, question);
+    return { question, answer };
+  }
+
+  // All other tools need nut-js
   const N = await nut();
   const { mouse, keyboard, screen, Button, Key, Point, Region, straightTo, saveImage } = N;
 
@@ -240,20 +315,13 @@ export async function executeComputerUseTool(name, args) {
 
     case 'mouse_click': {
       const btn = args.button?.toLowerCase() ?? 'left';
-
-      if (args.x !== undefined && args.y !== undefined) {
+      if (args.x !== undefined && args.y !== undefined)
         await mouse.move(straightTo(new Point(args.x, args.y)));
-      }
 
-      if (btn === 'double') {
-        await mouse.doubleClick(Button.LEFT);
-      } else if (btn === 'right') {
-        await mouse.click(Button.RIGHT);
-      } else if (btn === 'middle') {
-        await mouse.click(Button.MIDDLE);
-      } else {
-        await mouse.click(Button.LEFT);
-      }
+      if      (btn === 'double') await mouse.doubleClick(Button.LEFT);
+      else if (btn === 'right')  await mouse.click(Button.RIGHT);
+      else if (btn === 'middle') await mouse.click(Button.MIDDLE);
+      else                       await mouse.click(Button.LEFT);
 
       const pos = await mouse.getPosition();
       return { success: true, clicked: btn, at: { x: pos.x, y: pos.y } };
@@ -264,58 +332,37 @@ export async function executeComputerUseTool(name, args) {
       await mouse.pressButton(Button.LEFT);
       await mouse.move(straightTo(new Point(args.to_x, args.to_y)));
       await mouse.releaseButton(Button.LEFT);
-      return {
-        success: true,
-        dragged_from: { x: args.from_x, y: args.from_y },
-        dragged_to: { x: args.to_x, y: args.to_y },
-      };
+      return { success: true, from: { x: args.from_x, y: args.from_y }, to: { x: args.to_x, y: args.to_y } };
     }
 
     case 'mouse_scroll': {
       const amount = args.amount ?? 3;
-
-      if (args.x !== undefined && args.y !== undefined) {
+      if (args.x !== undefined && args.y !== undefined)
         await mouse.move(straightTo(new Point(args.x, args.y)));
-      }
-
-      if (args.direction === 'up') {
-        await mouse.scrollUp(amount);
-      } else if (args.direction === 'down') {
-        await mouse.scrollDown(amount);
-      } else {
-        throw new Error('direction must be "up" or "down"');
-      }
-
+      if      (args.direction === 'up')   await mouse.scrollUp(amount);
+      else if (args.direction === 'down') await mouse.scrollDown(amount);
+      else throw new Error('direction must be "up" or "down"');
       return { success: true, scrolled: args.direction, amount };
     }
 
     case 'key_type': {
-      if (args.delay_ms && args.delay_ms > 0) {
-        keyboard.config.autoDelayMs = args.delay_ms;
-      } else {
-        keyboard.config.autoDelayMs = 0;
-      }
+      keyboard.config.autoDelayMs = args.delay_ms ?? 0;
       await keyboard.type(args.text);
       return { success: true, typed: args.text };
     }
 
     case 'key_press': {
-      if (!Array.isArray(args.keys) || args.keys.length === 0) {
-        throw new Error('keys must be a non-empty array of key names.');
-      }
-
+      if (!Array.isArray(args.keys) || args.keys.length === 0)
+        throw new Error('keys must be a non-empty array.');
       const resolved = resolveKeys(N, args.keys);
-
       if (resolved.length === 1) {
         await keyboard.type(resolved[0]);
       } else {
-        // Hold all modifier keys, tap the last one
-        const modifiers = resolved.slice(0, -1);
+        const mods   = resolved.slice(0, -1);
         const target = resolved[resolved.length - 1];
-        await keyboard.pressKey(...modifiers, target);
-        await keyboard.releaseKey(...modifiers, target);
+        await keyboard.pressKey(...mods, target);
+        await keyboard.releaseKey(...mods, target);
       }
-
       return { success: true, pressed: args.keys };
     }
 
@@ -324,30 +371,26 @@ export async function executeComputerUseTool(name, args) {
         ? path.resolve(args.output_path)
         : path.join(os.tmpdir(), `quinn-screenshot-${Date.now()}.png`);
 
-      // Ensure parent dir exists
       fs.mkdirSync(path.dirname(outPath), { recursive: true });
 
       let image;
       if (args.region) {
         const { x, y, width, height } = args.region;
-        const region = new Region(x, y, width, height);
-        image = await screen.grabRegion(region);
+        image = await screen.grabRegion(new Region(x, y, width, height));
       } else {
         image = await screen.grab();
       }
 
       await saveImage(image, outPath);
-
-      // Read back as base64 for vision model consumption
       const base64 = fs.readFileSync(outPath).toString('base64');
 
       return {
-        success: true,
-        path: outPath,
-        width: image.width,
-        height: image.height,
-        base64_png: base64,
-        note: 'base64_png can be passed to a vision model (e.g. Gemini) as an inline image.',
+        success    : true,
+        path       : outPath,
+        width      : image.width,
+        height     : image.height,
+        base64_png : base64,
+        note       : 'Pass base64_png to analyze_image to understand what is on screen.',
       };
     }
 
@@ -357,7 +400,7 @@ export async function executeComputerUseTool(name, args) {
     }
 
     case 'get_screen_size': {
-      const width = await screen.width();
+      const width  = await screen.width();
       const height = await screen.height();
       return { width, height };
     }
