@@ -1,0 +1,25 @@
+{
+  "name": "quinn",
+  "version": "1.0.0",
+  "description": "An Agent you will love!",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zero-Sugar0/Quinn.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Zero-Sugar0/Quinn/issues"
+  },
+  "homepage": "https://github.com/Zero-Sugar0/Quinn#readme",
+  "dependencies": {
+    "@google/genai": "^1.51.0",
+    "chalk": "^5.6.2"
+  }
+}

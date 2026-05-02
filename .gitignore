@@ -1,0 +1,139 @@
+# -------------------------------
+# Node.js Essentials
+# -------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+.pnpm-debug.log
+
+# -------------------------------
+# Build / Output
+# -------------------------------
+dist/
+build/
+tmp/
+temp/
+.cache/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# -------------------------------
+# Logs & Reports
+# -------------------------------
+logs/
+*.log
+*.csv
+*.dat
+*.out
+*.pid
+*.seed
+*.tgz
+*.audit.json
+
+# -------------------------------
+# Runtime Data
+# -------------------------------
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# -------------------------------
+# Environment & Secrets
+# -------------------------------
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.envrc
+*.pem
+*.key
+*.crt
+
+# -------------------------------
+# OS / Editor Junk
+# -------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+*.swp
+*.swo
+*.bak
+*.tmp
+*.orig
+*.rej
+
+# -------------------------------
+# IDE / Tooling
+# -------------------------------
+.vscode/
+.idea/
+*.iml
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+
+# -------------------------------
+# Testing / Coverage
+# -------------------------------
+coverage/
+.nyc_output/
+.jest/
+.cypress/
+playwright-report/
+test-results/
+
+# -------------------------------
+# Framework Specific
+# -------------------------------
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# Remix
+.build/
+
+# Gatsby
+.cache/
+public/
+
+# SvelteKit
+.svelte-kit/
+
+# NestJS
+dist/
+
+# -------------------------------
+# Cloud / Deployment
+# -------------------------------
+.vercel/
+.netlify/
+firebase-debug.log
+functions/node_modules/
+.aws-sam/
+.serverless/
+.sequelize/
+
+# -------------------------------
+# Miscellaneous
+# -------------------------------
+*.tgz
+*.tar.gz
+*.zip
+*.rar
+*.7z
+*.bak
+*.tmp
+*.lock
