@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+//index.js
 
+import 'dotenv/config';
 import readline from 'readline';
 import chalk from 'chalk';
 import { Quinn } from './quinn.js';

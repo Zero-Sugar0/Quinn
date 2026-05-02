@@ -4,6 +4,7 @@
   "description": "An Agent you will love!",
   "main": "index.js",
   "scripts": {
+    "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -20,9 +21,11 @@
   "homepage": "https://github.com/Zero-Sugar0/Quinn#readme",
   "dependencies": {
     "@google/genai": "^1.51.0",
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "@tavily/core": "^0.7.3",
     "boxen": "^8.0.1",
     "chalk": "^5.6.2",
+    "dotenv": "^17.4.2",
     "figlet": "^1.11.0",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
